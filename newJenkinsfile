@@ -9,39 +9,56 @@ pipeline {
         timeout(time: 4, unit: 'HOURS')
     }
 
+    parameters {
+        string(
+            name: 'GIT_BASE_URL', 
+            defaultValue: 'https://github.com/JustTalhaRehman/', 
+            description: 'Base HTTPS URL for all repositories'
+        )
+    }
+
     stages {
+
         stage('Load Configuration') {
             steps {
                 script {
+                    // Load repository configuration
                     def reposConfig = load 'repos-config.groovy'
-                    
-                    // Dynamically create parameters
-                    properties([
-                        parameters(
-                            reposConfig.collect { repo ->
-                                string(
-                                    name: repo.paramName,
-                                    defaultValue: repo.defaultTag,
-                                    description: repo.description
-                                )
-                            }
-                        )
-                    ])
+                    echo "Loaded ${reposConfig.size()} repositories from config"
                 }
             }
         }
-        
-        stage('Build All Repositories') {
+
+        stage('Clone & Build Repositories') {
             steps {
                 script {
                     def reposConfig = load 'repos-config.groovy'
-                    
+
                     reposConfig.each { repo ->
-                        def tag = params[repo.paramName]
-                        buildRepository(repo.name, tag, repo.buildCmd)
+                        def branch = repo.defaultTag           // Branch comes from defaultTag
+                        def workspaceDir = "workspace/${repo.name}"
+
+                        echo "Cloning repository '${repo.name}' branch: '${branch}' into ${workspaceDir}"
+
+                        dir(workspaceDir) {
+                            deleteDir()  // Clean workspace
+
+                            // Use GitHub credentials for HTTPS clone
+                            withCredentials([usernamePassword(credentialsId: 'GITHUB_CREDENTIALS', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')]) {
+                                sh """
+                                    git clone --branch ${branch} https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git .
+                                """
+                            }
+
+                            // Replace !tag placeholder with branch name in build command
+                            def buildCommand = repo.buildCmd.replace('!tag', branch)
+                            echo "Running build command: ${buildCommand}"
+                            sh buildCommand
+                        }
                     }
                 }
             }
         }
     }
 }
+
