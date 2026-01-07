@@ -1,19 +1,16 @@
-// repos-config.groovy
 return [
     [
         name: 'product_backend',
-        paramName: 'IE_GLOBAL_TAG',
         defaultTag: 'develop',
-        buildCmd: "docker build --t product_backend:develop .",
-        description: 'ie-global branch/tag'
+        buildCmd: 'docker build -t product_backend:!tag .',
+        description: 'Backend service'
     ],
     [
         name: 'product_frontend',
-        paramName: 'IE_DEPS_TAG',
         defaultTag: 'develop',
-        buildCmd: "docker build -t product_frontend:develop .",
-        description: 'ie-deps branch/tag'
-    ],
+        buildCmd: 'docker build -t product_frontend:!tag .',
+        description: 'Frontend service'
+    ]
 
-    // Add all 16 repos...
+    // baqi 14 repos yahin add kro
 ]
