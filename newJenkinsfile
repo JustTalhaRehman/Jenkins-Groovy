@@ -9,8 +9,8 @@ pipeline {
 
     parameters {
         string(
-            name: 'GIT_BASE_URL', 
-            defaultValue: 'https://github.com/JustTalhaRehman/', 
+            name: 'GIT_BASE_URL',
+            defaultValue: 'https://github.com/JustTalhaRehman/',
             description: 'Base HTTPS URL for all repositories'
         )
     }
@@ -20,43 +20,65 @@ pipeline {
         stage('Load Configuration') {
             steps {
                 script {
-                    // Load repository configuration
                     def reposConfig = load 'repos-config.groovy'
-                    echo "Loaded ${reposConfig.size()} repositories from config"
+                    echo "Loaded ${reposConfig.size()} repositories"
                 }
             }
         }
 
-        stage('Clone & Build Repositories') {
+        stage('Clone & Build Repositories (Sequential)') {
             steps {
                 script {
                     def reposConfig = load 'repos-config.groovy'
 
                     reposConfig.each { repo ->
-                        def branch = repo.defaultTag           // Branch comes from defaultTag
-                        def workspaceDir = "workspace/${repo.name}"
+                        echo "=============================="
+                        echo "Processing repo: ${repo.name}"
+                        echo "=============================="
 
-                        echo "Cloning repository '${repo.name}' branch: '${branch}' into ${workspaceDir}"
+                        catchError(
+                            buildResult: 'UNSTABLE',
+                            stageResult: 'FAILURE'
+                        ) {
 
-                        dir(workspaceDir) {
-                            deleteDir()  // Clean workspace
+                            stage("Build ${repo.name}") {
 
-                            // Use GitHub credentials for HTTPS clone
-                            withCredentials([usernamePassword(credentialsId: 'GITHUB_CREDENTIALS', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')]) {
-                                sh """
-                                    git clone --branch ${branch} https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git .
-                                """
+                                def branch = repo.defaultTag
+                                def workspaceDir = "workspace/${repo.name}"
+
+                                dir(workspaceDir) {
+                                    deleteDir()
+
+                                    withCredentials([
+                                        usernamePassword(
+                                            credentialsId: 'GITHUB_CREDENTIALS',
+                                            usernameVariable: 'GIT_USER',
+                                            passwordVariable: 'GIT_PAT'
+                                        )
+                                    ]) {
+                                        sh """
+                                            git clone --branch ${branch} \
+                                            https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git .
+                                        """
+                                    }
+
+                                    def buildCommand = repo.buildCmd.replace('!tag', branch)
+                                    echo "Running: ${buildCommand}"
+                                    sh buildCommand
+                                }
                             }
-
-                            // Replace !tag placeholder with branch name in build command
-                            def buildCommand = repo.buildCmd.replace('!tag', branch)
-                            echo "Running build command: ${buildCommand}"
-                            sh buildCommand
                         }
+
+                        echo "Finished repo: ${repo.name} (moving to next)"
                     }
                 }
             }
         }
     }
-}
 
+    post {
+        always {
+            echo "Pipeline finished (some builds may have failed)"
+        }
+    }
+}
