@@ -1,14 +1,14 @@
 // repos-config.groovy
 return [
     [
-        name: 'product-backend',
+        name: 'product_backend',
         paramName: 'IE_GLOBAL_TAG',
         defaultTag: 'develop',
         buildCmd: "mvn -U -P '!tag' clean install",
         description: 'ie-global branch/tag'
     ],
     [
-        name: 'product-frontend',
+        name: 'product_frontend',
         paramName: 'IE_DEPS_TAG',
         defaultTag: 'develop',
         buildCmd: "mvn -U -P '!tag' clean install",
