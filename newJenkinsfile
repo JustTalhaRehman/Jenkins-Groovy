@@ -10,8 +10,8 @@ pipeline {
     parameters {
         string(
             name: 'GIT_BASE_URL',
-            defaultValue: 'https://github.com/JustTalhaRehman/',
-            description: 'Base HTTPS URL for all repositories'
+            defaultValue: 'github.com/JustTalhaRehman',
+            description: 'Git base URL without protocol'
         )
     }
 
@@ -20,7 +20,7 @@ pipeline {
         stage('Load Configuration') {
             steps {
                 script {
-                    reposConfig = load 'repos-config.groovy'
+                    def reposConfig = load 'repos-config.groovy'
                     echo "Loaded ${reposConfig.size()} repositories"
                 }
             }
@@ -29,16 +29,18 @@ pipeline {
         stage('Clone & Build Repositories (Sequential)') {
             steps {
                 script {
-
-                    def failedRepos = []
+                    def reposConfig = load 'repos-config.groovy'
 
                     reposConfig.each { repo ->
-
                         echo "=============================="
                         echo "Processing repo: ${repo.name}"
                         echo "=============================="
 
-                        try {
+                        catchError(
+                            buildResult: 'UNSTABLE',
+                            stageResult: 'FAILURE'
+                        ) {
+
                             stage("Build ${repo.name}") {
 
                                 def branch = repo.defaultTag
@@ -54,42 +56,20 @@ pipeline {
                                             passwordVariable: 'GIT_PAT'
                                         )
                                     ]) {
-                                        sh """
-                                            git clone --branch ${branch} \
-                                            https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git .
-                                        """
+
+                                        def gitUrl = "https://${GIT_USER}:${GIT_PAT}@${params.GIT_BASE_URL}/${repo.name}.git"
+
+                                        sh "git clone --branch ${branch} ${gitUrl} ."
                                     }
 
                                     def buildCommand = repo.buildCmd.replace('!tag', branch)
-                                    echo "Running: ${buildCommand}"
+                                    echo "Running build command: ${buildCommand}"
                                     sh buildCommand
                                 }
                             }
-
-                            echo "SUCCESS: ${repo.name}"
-
-                        } catch (err) {
-
-                            echo "❌ FAILED: ${repo.name}"
-                            failedRepos << repo.name
-
-                            // Mark stage as failed but continue pipeline
-                            currentBuild.result = 'UNSTABLE'
                         }
 
-                        echo "Finished repo: ${repo.name} (moving to next)"
-                    }
-
-                    // FINAL SUMMARY
-                    if (failedRepos.size() > 0) {
-                        echo "====================================="
-                        echo "FAILED STAGES SUMMARY"
-                        failedRepos.each { r ->
-                            echo "❌ Build ${r}"
-                        }
-                        echo "====================================="
-                    } else {
-                        echo "🎉 All repositories built successfully"
+                        echo "Finished repo: ${repo.name} — moving to next"
                     }
                 }
             }
@@ -98,7 +78,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline completed"
+            echo "Pipeline completed (failures allowed, sequential execution)"
         }
     }
 }
