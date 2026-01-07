@@ -2,7 +2,7 @@ return [
     [
         name: 'product_backend',
         defaultTag: 'develop',
-        buildCmd: 'docker build --t product_backend:!tag .',
+        buildCmd: 'docker build -t product_backend:!tag .',
         description: 'Backend service'
     ],
     [
