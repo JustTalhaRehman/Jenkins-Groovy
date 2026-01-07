@@ -1,3 +1,5 @@
+@Library('your-shared-library') _
+
 pipeline {
     agent any
 
@@ -20,6 +22,7 @@ pipeline {
         stage('Load Configuration') {
             steps {
                 script {
+                    // Load repository configuration
                     def reposConfig = load 'repos-config.groovy'
                     echo "Loaded ${reposConfig.size()} repositories from config"
                 }
@@ -32,32 +35,23 @@ pipeline {
                     def reposConfig = load 'repos-config.groovy'
 
                     reposConfig.each { repo ->
-                        def branch = repo.defaultTag
+                        def branch = repo.defaultTag           // Branch comes from defaultTag
                         def workspaceDir = "workspace/${repo.name}"
-
-                        // Sanitize branch for Docker tag (replace / or other invalid characters)
-                        def safeBranch = branch.replaceAll('[^a-zA-Z0-9_.-]', '-')
 
                         echo "Cloning repository '${repo.name}' branch: '${branch}' into ${workspaceDir}"
 
                         dir(workspaceDir) {
-                            deleteDir() // clean workspace
+                            deleteDir()  // Clean workspace
 
-                            // Clone repo safely with credentials
-                            withCredentials([usernamePassword(
-                                credentialsId: 'GITHUB_CREDENTIALS',
-                                usernameVariable: 'GIT_USER',
-                                passwordVariable: 'GIT_PAT'
-                            )]) {
-                                // Use array style to avoid insecure interpolation warning
-                                sh([
-                                    'bash', '-c', 
-                                    "git clone --branch ${branch} https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git ."
-                                ])
+                            // Use GitHub credentials for HTTPS clone
+                            withCredentials([usernamePassword(credentialsId: 'GITHUB_CREDENTIALS', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')]) {
+                                sh """
+                                    git clone --branch ${branch} https://${GIT_USER}:${GIT_PAT}@github.com/JustTalhaRehman/${repo.name}.git .
+                                """
                             }
 
-                            // Replace !tag in build command with safe branch
-                            def buildCommand = repo.buildCmd.replace('!tag', safeBranch)
+                            // Replace !tag placeholder with branch name in build command
+                            def buildCommand = repo.buildCmd.replace('!tag', branch)
                             echo "Running build command: ${buildCommand}"
                             sh buildCommand
                         }
@@ -67,3 +61,4 @@ pipeline {
         }
     }
 }
+
