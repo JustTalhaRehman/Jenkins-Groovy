@@ -1,0 +1,47 @@
+@Library('your-shared-library') _
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 4, unit: 'HOURS')
+    }
+
+    stages {
+        stage('Load Configuration') {
+            steps {
+                script {
+                    def reposConfig = load 'repos-config.groovy'
+                    
+                    // Dynamically create parameters
+                    properties([
+                        parameters(
+                            reposConfig.collect { repo ->
+                                string(
+                                    name: repo.paramName,
+                                    defaultValue: repo.defaultTag,
+                                    description: repo.description
+                                )
+                            }
+                        )
+                    ])
+                }
+            }
+        }
+        
+        stage('Build All Repositories') {
+            steps {
+                script {
+                    def reposConfig = load 'repos-config.groovy'
+                    
+                    reposConfig.each { repo ->
+                        def tag = params[repo.paramName]
+                        buildRepository(repo.name, tag, repo.buildCmd)
+                    }
+                }
+            }
+        }
+    }
+}
