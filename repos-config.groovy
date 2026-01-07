@@ -4,14 +4,14 @@ return [
         name: 'product_backend',
         paramName: 'IE_GLOBAL_TAG',
         defaultTag: 'develop',
-        buildCmd: "docker build -t product_backend:!123 .",
+        buildCmd: "docker build -t product_backend:develop .",
         description: 'ie-global branch/tag'
     ],
     [
         name: 'product_frontend',
         paramName: 'IE_DEPS_TAG',
         defaultTag: 'develop',
-        buildCmd: "docker build -t product_frontend:!123 .",
+        buildCmd: "docker build -t product_frontend:develop .",
         description: 'ie-deps branch/tag'
     ],
 
