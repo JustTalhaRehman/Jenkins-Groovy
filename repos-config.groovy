@@ -4,7 +4,7 @@ return [
         name: 'product_backend',
         paramName: 'IE_GLOBAL_TAG',
         defaultTag: 'develop',
-        buildCmd: "mvn -U -P '!tag' clean install",
+        buildCmd: docker build -t product_backend:develop .",
         description: 'ie-global branch/tag'
     ],
     [
