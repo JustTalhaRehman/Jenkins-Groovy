@@ -20,7 +20,7 @@ pipeline {
         stage('Load Configuration') {
             steps {
                 script {
-                    def reposConfig = load 'repos-config.groovy'
+                    reposConfig = load 'repos-config.groovy'
                     echo "Loaded ${reposConfig.size()} repositories"
                 }
             }
@@ -29,18 +29,16 @@ pipeline {
         stage('Clone & Build Repositories (Sequential)') {
             steps {
                 script {
-                    def reposConfig = load 'repos-config.groovy'
+
+                    def failedRepos = []
 
                     reposConfig.each { repo ->
+
                         echo "=============================="
                         echo "Processing repo: ${repo.name}"
                         echo "=============================="
 
-                        catchError(
-                            buildResult: 'UNSTABLE',
-                            stageResult: 'FAILURE'
-                        ) {
-
+                        try {
                             stage("Build ${repo.name}") {
 
                                 def branch = repo.defaultTag
@@ -67,9 +65,31 @@ pipeline {
                                     sh buildCommand
                                 }
                             }
+
+                            echo "SUCCESS: ${repo.name}"
+
+                        } catch (err) {
+
+                            echo "❌ FAILED: ${repo.name}"
+                            failedRepos << repo.name
+
+                            // Mark stage as failed but continue pipeline
+                            currentBuild.result = 'UNSTABLE'
                         }
 
                         echo "Finished repo: ${repo.name} (moving to next)"
+                    }
+
+                    // FINAL SUMMARY
+                    if (failedRepos.size() > 0) {
+                        echo "====================================="
+                        echo "FAILED STAGES SUMMARY"
+                        failedRepos.each { r ->
+                            echo "❌ Build ${r}"
+                        }
+                        echo "====================================="
+                    } else {
+                        echo "🎉 All repositories built successfully"
                     }
                 }
             }
@@ -78,7 +98,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline finished (some builds may have failed)"
+            echo "Pipeline completed"
         }
     }
 }
